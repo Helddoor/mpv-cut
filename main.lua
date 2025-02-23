@@ -47,6 +47,19 @@ end
 ACTIONS = {}
 
 ACTIONS.COPY = function(d)
+	function dump(o)
+	   if type(o) == 'table' then
+		  local s = '{ '
+		  for k,v in pairs(o) do
+			 if type(k) ~= 'number' then k = '"'..k..'"' end
+			 s = s .. '['..k..'] = ' .. dump(v) .. ','
+		  end
+		  return s .. '} '
+	   else
+		  return tostring(o)
+	   end
+	end
+
 	local args = {
 		"ffmpeg",
 		"-nostdin", "-y",
@@ -60,6 +73,9 @@ ACTIONS.COPY = function(d)
 		"-avoid_negative_ts", "make_zero",
 		utils.join_path(d.indir, "COPY_" .. d.channel .. "_" .. d.infile_noext .. "_FROM_" .. d.start_time_hms .. "_TO_" .. d.end_time_hms .. d.ext)
 	}
+	--file = io.open("C:/Users/<user>/Downloads/a.txt", "w")
+	--file:write(dump(args))
+	--file:close()
 	mp.command_native_async({
 		name = "subprocess",
 		args = args,
@@ -137,12 +153,26 @@ local function get_current_channel_name()
 end
 
 local function get_data()
+	local function getDownloadFolder()
+		local downloadFolder
+	
+		if package.config:sub(1, 1) == '\\' then
+			-- Windows
+			downloadFolder = os.getenv("USERPROFILE") .. "\\Downloads"
+		else
+			-- Linux oder macOS
+			downloadFolder = os.getenv("HOME") .. "/Downloads"
+		end
+	
+		return downloadFolder
+	end
 	local d = {}
+	local pattern = "^http"
 	d.inpath = mp.get_property("path")
-	d.indir = utils.split_path(d.inpath)
+	d.indir = d.inpath:find(pattern) ~= nil and getDownloadFolder() or utils.split_path(d.inpath)
 	d.infile = mp.get_property("filename")
 	d.infile_noext = mp.get_property("filename/no-ext")
-	d.ext = mp.get_property("filename"):match("^.+(%..+)$") or ".mp4"
+	d.ext = d.inpath:find(pattern) ~= nil and ".mp4" or mp.get_property("filename"):match("^.+(%..+)$") or ".mp4"
 	d.channel = get_current_channel_name()
 	return d
 end
