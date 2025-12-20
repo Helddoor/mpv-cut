@@ -181,11 +181,13 @@ local function get_data()
         return { inpath = "unknown", indir = getDownloadFolder(), infile_noext = "error", channel = "1", ext = ".mp4" }
     end
 
+	local currentTitle = title or mp.get_property("media-title") or "fallback_default_filename"
+
 	-- 2. Determine Directory and Filename
 	if d.inpath:find("^http") then
 		-- It's a URL, use the Downloads folder
 		d.indir = getDownloadFolder()
-		d.infile_noext = title:gsub('[%p%s]+', '_') -- Clean special characters
+		d.infile_noext = currentTitle:gsub('[%p%s]+', '_') -- Clean special characters
 		d.ext = ".mp4"
 	else
 		-- It's a local file, use the directory where the file is located
