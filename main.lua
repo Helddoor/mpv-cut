@@ -154,28 +154,51 @@ end
 
 local function get_data()
 	local function getDownloadFolder()
-		local downloadFolder
-	
-		if package.config:sub(1, 1) == '\\' then
-			-- Windows
-			downloadFolder = os.getenv("USERPROFILE") .. "\\Downloads"
-		else
-			-- Linux oder macOS
-			downloadFolder = os.getenv("HOME") .. "/Downloads"
-		end
-	
-		return downloadFolder
+		-- Windows or Linux path logic
+		return (package.config:sub(1, 1) == '\\') 
+            and (os.getenv("USERPROFILE") .. "\\Downloads") 
+            or (os.getenv("HOME") .. "/Downloads")
 	end
+
 	local d = {}
-	local pattern = "^http"
-	d.inpath = mp.get_property("path")
-	d.indir = d.inpath:find(pattern) ~= nil and getDownloadFolder() or utils.split_path(d.inpath)
-	d.infile = mp.get_property("filename")
-	d.infile_noext = mp.get_property("filename/no-ext")
-	d.ext = d.inpath:find(pattern) ~= nil and ".mp4" or mp.get_property("filename"):match("^.+(%..+)$") or ".mp4"
-	d.channel = get_current_channel_name()
+	local real_url = mp.get_property("user-data/real-url")
+	local path = mp.get_property("path") or ""
+
+	-- 1. Determine Input Path and strip quotes/slashes
+	if real_url and (path:find("127.0.0.1") or path:find("localhost")) then
+		d.inpath = real_url
+	else
+		d.inpath = path
+	end
+    
+    -- CRITICAL: Strip all invalid characters that accumulate from mpv properties
+    if d.inpath then
+        d.inpath = d.inpath:gsub('"', ''):gsub('\\', ''):gsub('^%s*', ''):gsub('%s*$', '')
+    end
+
+    -- If inpath is still empty (nil-guard), return a dummy table to prevent crashes
+    if not d.inpath or d.inpath == "" or d.inpath == "unknown" then
+        return { inpath = "unknown", indir = getDownloadFolder(), infile_noext = "error", channel = "1", ext = ".mp4" }
+    end
+
+	-- 2. Determine Directory and Filename
+	if d.inpath:find("^http") then
+		-- It's a URL, use the Downloads folder
+		d.indir = getDownloadFolder()
+		d.infile_noext = title:gsub('[%p%s]+', '_') -- Clean special characters
+		d.ext = ".mp4"
+	else
+		-- It's a local file, use the directory where the file is located
+        -- DO NOT USE split_path() on a URL
+		d.indir = utils.split_path(d.inpath) or "."
+		d.infile_noext = mp.get_property("filename/no-ext") or "unknown"
+		d.ext = d.inpath:match("^.+(%..+)$") or ".mp4"
+	end
+
+	d.channel = tostring(get_current_channel_name() or "1")
 	return d
 end
+
 
 local function get_times(start_time, end_time)
 	local d = {}
@@ -249,6 +272,7 @@ end
 
 local function get_bookmark_file_path()
 	local d = get_data()
+	if d.inpath == "unknown" or d.inpath == "" then return nil end
 	mp.msg.info(table_to_str(d))
 	local outfile = string.format("%s_%s.book", d.channel, d.infile)
 	return utils.join_path(d.indir, outfile)
@@ -256,6 +280,8 @@ end
 
 local function bookmarks_load()
 	local inpath = get_bookmark_file_path()
+	if not inpath then return end
+
 	local file = io.open(inpath, "r")
 	if not file then return end
 	local arr = {}
@@ -298,6 +324,13 @@ local function channel_dec()
 	print_or_update_text_overlay(get_current_channel_name())
 end
 
+local initial_load = true
+local function delay_bookmark_load()
+	mp.add_timeout(3, function()
+		bookmarks_load()
+   	end)
+end
+
 mp.add_key_binding(KEY_CUT, "cut", put_time)
 mp.add_key_binding(KEY_CANCEL_CUT, "cancel_cut", cancel_cut)
 mp.add_key_binding(KEY_BOOKMARK_ADD, "bookmark_add", bookmark_add)
@@ -305,4 +338,4 @@ mp.add_key_binding(KEY_CHANNEL_INC, "channel_inc", channel_inc)
 mp.add_key_binding(KEY_CHANNEL_DEC, "channel_dec", channel_dec)
 mp.add_key_binding(KEY_CYCLE_ACTION, "cycle_action", cycle_action)
 
-mp.register_event('file-loaded', bookmarks_load)
+mp.register_event('file-loaded', delay_bookmark_load)
