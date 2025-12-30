@@ -7,6 +7,12 @@ local function print(s)
 	mp.osd_message(s)
 end
 
+local function extract_filename_from_path(path)
+    -- Match everything after the last '/' (this works for both URLs and file paths)
+    local filename = path:match("([^/]+)$")
+    return filename
+end
+
 local function table_to_str(o)
 	if type(o) == 'table' then
 		local s = ''
@@ -173,12 +179,12 @@ local function get_data()
 	end
 
 	local d = {}
-	local real_url = mp.get_property("user-data/real-url")
 	local path = mp.get_property("path") or ""
+	local media_title = title or mp.get_property("media-title") or "fallback_default_filename"
+	local url = media_title:match("(https?://[%w%.%-_/=?&;:,%+]+)")
 
-	-- 1. Determine Input Path and strip quotes/slashes
-	if real_url and (path:find("127.0.0.1") or path:find("localhost")) then
-		d.inpath = real_url
+	if url then
+		d.inpath = url
 	else
 		d.inpath = path
 	end
@@ -193,13 +199,13 @@ local function get_data()
         return { inpath = "unknown", indir = getDownloadFolder(), infile_noext = "error", channel = "1", ext = ".mp4" }
     end
 
-	local currentTitle = title or mp.get_property("media-title") or "fallback_default_filename"
+	
 
 	-- 2. Determine Directory and Filename
 	if d.inpath:find("^http") then
 		-- It's a URL, use the Downloads folder
 		d.indir = getDownloadFolder()
-		d.infile_noext = currentTitle:gsub('[%p%s]+', '_') -- Clean special characters
+		d.infile_noext = extract_filename_from_path(media_title):gsub('[%p%s]+', '_') -- Clean special characters
 		d.ext = ".mp4"
 	else
 		-- It's a local file, use the directory where the file is located
