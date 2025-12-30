@@ -61,7 +61,12 @@ ACTIONS.COPY = function(d)
 	end
 
 	local args = {
-		"ffmpeg",
+		"ffmpeg",												-- The following overwrite security settings introduced by ffmpeg!
+        "-protocol_whitelist", "file,http,https,tcp,tls,crypto",-- Whitelist the protocols
+		"-extension_picky", "0",            					-- Standalone flag for FFmpeg 8.0+
+        "-allowed_extensions", "ALL",                           -- Allow manifest types
+        "-allowed_segment_extensions", "ALL",                   -- Allow .gif segments (FFmpeg 8.0+)
+		"-fflags", "+igndts",               					-- Ignore corrupt timestamps often found in .gif chunks
 		"-nostdin", "-y",
 		"-loglevel", "error",
 		"-ss", d.start_time,
@@ -85,7 +90,12 @@ end
 
 ACTIONS.ENCODE = function(d)
 	local args = {
-		"ffmpeg",
+		"ffmpeg",												-- The following overwrite security settings introduced by ffmpeg!
+        "-protocol_whitelist", "file,http,https,tcp,tls,crypto",-- Whitelist the protocols
+		"-extension_picky", "0",            					-- Standalone flag for FFmpeg 8.0+
+        "-allowed_extensions", "ALL",                           -- Allow manifest types
+        "-allowed_segment_extensions", "ALL",                   -- Allow .gif segments (FFmpeg 8.0+)
+		"-fflags", "+igndts",               					-- Ignore corrupt timestamps often found in .gif chunks
 		"-nostdin", "-y",
 		"-loglevel", "error",
 		"-ss", d.start_time,
