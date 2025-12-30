@@ -69,9 +69,11 @@ ACTIONS.COPY = function(d)
 		"-fflags", "+igndts",               					-- Ignore corrupt timestamps often found in .gif chunks
 		"-nostdin", "-y",
 		"-loglevel", "error",
-		"-ss", d.start_time,
+		"-ss", d.start_time, 
+		"-i", d.inpath, 
+		"-map", "0",
+		"-c", "copy",
 		"-t", d.duration,
-		"-i", d.inpath,
 		"-c", "copy",
 		"-map", "0",
 		"-dn",
@@ -99,8 +101,8 @@ ACTIONS.ENCODE = function(d)
 		"-nostdin", "-y",
 		"-loglevel", "error",
 		"-ss", d.start_time,
-		"-t", d.duration,
 		"-i", d.inpath,
+		"-t", d.duration,
 		"-pix_fmt", "yuv420p",
 		"-crf", "16",
 		"-preset", "superfast",
@@ -260,20 +262,21 @@ local function cut(start_time, end_time)
 end
 
 local function put_time()
-	local time = mp.get_property_number("time-pos")
-	if not START_TIME then
-		START_TIME = time
-		text_overlay_on()
-		return
-	end
-	text_overlay_off()
-	if time > START_TIME then
-		cut(START_TIME, time)
+    local time = mp.get_property_number("time-pos")
+    if not START_TIME then
+        START_TIME = time
+        text_overlay_on()
+        return
+    end
+    text_overlay_off()
+    if time > START_TIME then
+        local end_time = time
+		cut(START_TIME, end_time)
 		START_TIME = nil
-	else
-		print("INVALID")
-		START_TIME = nil
-	end
+    else
+        print("INVALID")
+        START_TIME = nil
+    end
 end
 
 local function cancel_cut()

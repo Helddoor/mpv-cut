@@ -5,7 +5,7 @@ This extension allows you to:
 - Quickly cut videos both losslessly and re-encoded-ly.
 
 - Specify custom actions in a `config.lua` file to support your own use cases
-	without having to modify the script itself or write your own extension.
+  without having to modify the script itself or write your own extension.
 
 - Bookmark timestamps to a `.book` file and load them as chapters.
 
@@ -213,20 +213,20 @@ You may also want to change your key repeat delay and rate by tweaking
 There are plenty of reasons, but to give some examples:
 
 - In my opinion, video is extremely complex and tools around video can be
-	unreliable. One video file may cause certain issues, and another may not,
-	which makes writing an ffmpeg command that accounts for all scenarios
-	difficult. If you spend a ton of time making many cuts in a long movie only
-	to find that the colors look off because of some 10-bit h265 dolby mega
-	surround whatever the fuck, with a cut list it's trivial to edit the ffmpeg
-	command and re-make the cuts.
+  unreliable. One video file may cause certain issues, and another may not,
+  which makes writing an ffmpeg command that accounts for all scenarios
+  difficult. If you spend a ton of time making many cuts in a long movie only
+  to find that the colors look off because of some 10-bit h265 dolby mega
+  surround whatever the fuck, with a cut list it's trivial to edit the ffmpeg
+  command and re-make the cuts.
 
 - Maybe you forget that the foreign language video you're cutting has softsubs
-	rather than hardsubs, and you make a bunch of encode cuts resulting in cuts
-	that have no subtitles.
+  rather than hardsubs, and you make a bunch of encode cuts resulting in cuts
+  that have no subtitles.
 
 - You might move the source video to somewhere else for storage but still want
-	to have a back up of the cut timestamps in the event you need to remake the
-	cuts from source quality.
+  to have a back up of the cut timestamps in the event you need to remake the
+  cuts from source quality.
 
 ### Why Would I Bookmark Instead Of Cutting?
 
@@ -239,14 +239,14 @@ once you're done watching you can go back and make actual cuts.
 ### Why Would I Re-Encode A Video?
 
 - As mentioned above, copying the input stream is very fast and lossless but
-	the cuts are not exact. Sometimes you want a cut to be exact.
+  the cuts are not exact. Sometimes you want a cut to be exact.
 
 - If you want to change the framerate.
 
 - If you want to encode hardsubs.
 
 - If the video's compression isn't efficient enough to upload to a messaging
-	platform or something, you may want to compress it more.
+  platform or something, you may want to compress it more.
 
 ### Can I Make Seeking And Reverse Playback Faster?
 
