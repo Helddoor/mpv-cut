@@ -52,6 +52,18 @@ end
 
 ACTIONS = {}
 
+args_base = {
+	"ffmpeg",
+	"-protocol_whitelist", "file,http,https,tcp,tls,crypto",-- Whitelist the protocols
+	"-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",-- Should fix issues with bad requests
+}
+
+args_hls_overrides = {										-- The following overwrite security settings introduced by ffmpeg!
+	"-extension_picky", "0",            					-- Standalone flag for FFmpeg 8.0+
+	"-allowed_extensions", "ALL",                           -- Allow manifest types
+	"-allowed_segment_extensions", "ALL",                   -- Allow .gif segments (FFmpeg 8.0+)
+}
+
 ACTIONS.COPY = function(d)
 	function dump(o)
 	   if type(o) == 'table' then
@@ -66,12 +78,18 @@ ACTIONS.COPY = function(d)
 	   end
 	end
 
-	local args = {
-		"ffmpeg",												-- The following overwrite security settings introduced by ffmpeg!
-        "-protocol_whitelist", "file,http,https,tcp,tls,crypto",-- Whitelist the protocols
-		"-extension_picky", "0",            					-- Standalone flag for FFmpeg 8.0+
-        "-allowed_extensions", "ALL",                           -- Allow manifest types
-        "-allowed_segment_extensions", "ALL",                   -- Allow .gif segments (FFmpeg 8.0+)
+	local args = {}
+	for _, v in ipairs(args_base) do
+		table.insert(args, v)
+	end
+
+	if d.is_hls then
+		for _, v in ipairs(hls_overrides) do
+			table.insert(args, v)
+		end
+	end
+
+	local core_params = {
 		"-fflags", "+igndts",               					-- Ignore corrupt timestamps often found in .gif chunks
 		"-nostdin", "-y",
 		"-loglevel", "error",
@@ -86,7 +104,11 @@ ACTIONS.COPY = function(d)
 		"-avoid_negative_ts", "make_zero",
 		utils.join_path(d.indir, "COPY_" .. d.channel .. "_" .. d.infile_noext .. "_FROM_" .. d.start_time_hms .. "_TO_" .. d.end_time_hms .. d.ext)
 	}
-	--file = io.open("C:/Users/<user>/Downloads/a.txt", "w")
+	for _, v in ipairs(core_params) do
+		table.insert(args, v)
+	end
+
+	--file = io.open("C:/FOLDER/a.txt", "w")
 	--file:write(dump(args))
 	--file:close()
 	mp.command_native_async({
@@ -97,23 +119,38 @@ ACTIONS.COPY = function(d)
 end
 
 ACTIONS.ENCODE = function(d)
-	local args = {
-		"ffmpeg",												-- The following overwrite security settings introduced by ffmpeg!
-        "-protocol_whitelist", "file,http,https,tcp,tls,crypto",-- Whitelist the protocols
-		"-extension_picky", "0",            					-- Standalone flag for FFmpeg 8.0+
-        "-allowed_extensions", "ALL",                           -- Allow manifest types
-        "-allowed_segment_extensions", "ALL",                   -- Allow .gif segments (FFmpeg 8.0+)
-		"-fflags", "+igndts",               					-- Ignore corrupt timestamps often found in .gif chunks
+	d.ext = ".mkv"
+
+	local args = {}
+	for _, v in ipairs(args_base) do
+		table.insert(args, v)
+	end
+
+	if d.is_hls then
+		for _, v in ipairs(hls_overrides) do
+			table.insert(args, v)
+		end
+	end
+
+	local core_params = {
+		"-fflags", "+igndts",									-- Ignore corrupt timestamps often found in .gif chunks
 		"-nostdin", "-y",
 		"-loglevel", "error",
 		"-ss", d.start_time,
 		"-i", d.inpath,
 		"-t", d.duration,
+		"-c:v", "libx265",   
 		"-pix_fmt", "yuv420p",
-		"-crf", "16",
-		"-preset", "superfast",
+		"-crf", "28", --16 for very high
+		"-maxrate", "2.5M", -- added max bitrate
+		"-bufsize", "5M", -- double buffer size
+		"-preset", "medium", -- prior superfast
 		utils.join_path(d.indir, "ENCODE_" .. d.channel .. "_" .. d.infile_noext .. "_FROM_" .. d.start_time_hms .. "_TO_" .. d.end_time_hms .. d.ext)
 	}
+	for _, v in ipairs(core_params) do
+		table.insert(args, v)
+	end
+
 	mp.command_native_async({
 		name = "subprocess",
 		args = args,
@@ -136,7 +173,8 @@ ACTIONS.LIST = function(d)
 	print("Δ " .. delta)
 end
 
-ACTION = "COPY"
+-- ACTION = "COPY"
+ACTION = "ENCODE"
 
 CHANNEL = 1
 
@@ -199,7 +237,10 @@ local function get_data()
         return { inpath = "unknown", indir = getDownloadFolder(), infile_noext = "error", channel = "1", ext = ".mp4" }
     end
 
-	
+	-- DETECT STREAM TYPE
+    -- Check if the path contains .m3u8 (HLS) or .mpd (DASH)
+    d.is_hls = d.inpath:lower():find("%.m3u8") ~= nil
+    d.is_dash = d.inpath:lower():find("%.mpd") ~= nil
 
 	-- 2. Determine Directory and Filename
 	if d.inpath:find("^http") then
