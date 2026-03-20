@@ -55,16 +55,55 @@ ACTIONS = {}
 args_base = {
 	"ffmpeg",
 	"-protocol_whitelist", "file,http,https,tcp,tls,crypto",-- Whitelist the protocols
-	"-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",-- Should fix issues with bad requests
+	"-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0",-- Should fix issues with bad requests
 }
 
 args_hls_overrides = {										-- The following overwrite security settings introduced by ffmpeg!
 	"-extension_picky", "0",            					-- Standalone flag for FFmpeg 8.0+
 	"-allowed_extensions", "ALL",                           -- Allow manifest types
 	"-allowed_segment_extensions", "ALL",                   -- Allow .gif segments (FFmpeg 8.0+)
+	"-headers", "Origin: https://www.miruro.to"				-- Change header to prevent 403
 }
 
+-- Special logic for Youtube (always copy)
+function special_youtube_logic(d)
+	if d.inpath:find("youtube%.com") or d.inpath:find("youtu%.be") then	
+		-- 1. both direct stream urls
+		-- currently uses opus often 2026 does not like mp4
+		local vid_url = mp.command_native({name = "subprocess", args = {"yt-dlp", "-f", "bestvideo", "-g", d.inpath}, capture_stdout = true}).stdout:gsub("%s+", "")
+		local aud_url = mp.command_native({name = "subprocess", args = {"yt-dlp", "-f", "bestaudio", "-g", d.inpath}, capture_stdout = true}).stdout:gsub("%s+", "")
+		
+		-- 2. get default YouTube name(Titel + [ID])
+		local yt_filename = mp.command_native({
+			name = "subprocess", 
+			args = {"yt-dlp", "--get-filename", "--encoding", "utf-8", "-o", "%(title)s [%(id)s]", d.inpath}, 
+			capture_stdout = true
+		}).stdout:gsub("[\r\n]+", "")
+		
+		-- 3. Remove invalid windows symbols: \ / : * ? " < > | -> convert ? to ？
+		local safe_filename = yt_filename:gsub('%?', '？'):gsub('[\\/:%*"<>|]', "")
+		local output_name = safe_filename .. "_COPY_" .. d.start_time_hms .. "_TO_" .. d.end_time_hms .. '.mkv'
+
+		local yt_args = {
+			"ffmpeg", "-y", "-loglevel", "error",
+			"-ss", d.start_time, "-to", d.end_time, "-i", vid_url,
+			"-ss", d.start_time, "-to", d.end_time, "-i", aud_url,
+			"-map", "0:v", "-map", "1:a", "-c", "copy",
+			utils.join_path(d.indir, output_name)
+		}
+
+		mp.command_native_async({
+			name = "subprocess",
+			args = yt_args,
+			playback_only = false,
+		}, function() print("Done (YouTube): " .. yt_filename) end)
+		return 
+	end
+end
+
 ACTIONS.COPY = function(d)
+	special_youtube_logic(d)
+
 	function dump(o)
 	   if type(o) == 'table' then
 		  local s = '{ '
@@ -84,7 +123,7 @@ ACTIONS.COPY = function(d)
 	end
 
 	if d.is_hls then
-		for _, v in ipairs(hls_overrides) do
+		for _, v in ipairs(args_hls_overrides) do
 			table.insert(args, v)
 		end
 	end
@@ -119,6 +158,7 @@ ACTIONS.COPY = function(d)
 end
 
 ACTIONS.ENCODE = function(d)
+	special_youtube_logic(d)
 	d.ext = ".mkv"
 
 	local args = {}
@@ -127,7 +167,7 @@ ACTIONS.ENCODE = function(d)
 	end
 
 	if d.is_hls then
-		for _, v in ipairs(hls_overrides) do
+		for _, v in ipairs(args_hls_overrides) do
 			table.insert(args, v)
 		end
 	end
@@ -239,8 +279,8 @@ local function get_data()
 
 	-- DETECT STREAM TYPE
     -- Check if the path contains .m3u8 (HLS) or .mpd (DASH)
-    d.is_hls = d.inpath:lower():find("%.m3u8") ~= nil
-    d.is_dash = d.inpath:lower():find("%.mpd") ~= nil
+    d.is_hls = d.inpath:lower():find("%m3u8") ~= nil
+    d.is_dash = d.inpath:lower():find("%mpd") ~= nil
 
 	-- 2. Determine Directory and Filename
 	if d.inpath:find("^http") then
