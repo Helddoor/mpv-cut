@@ -82,13 +82,14 @@ function special_youtube_logic(d)
 		
 		-- 3. Remove invalid windows symbols: \ / : * ? " < > | -> convert ? to ？
 		local safe_filename = yt_filename:gsub('%?', '？'):gsub('[\\/:%*"<>|]', "")
-		local output_name = safe_filename .. "_COPY_" .. d.start_time_hms .. "_TO_" .. d.end_time_hms .. '.mkv'
+		local output_name = safe_filename .. "_COPY_" .. d.start_time_hms .. "_TO_" .. d.end_time_hms .. '.webm'
 
 		local yt_args = {
 			"ffmpeg", "-y", "-loglevel", "error",
 			"-ss", d.start_time, "-to", d.end_time, "-i", vid_url,
 			"-ss", d.start_time, "-to", d.end_time, "-i", aud_url,
 			"-map", "0:v", "-map", "1:a", "-c", "copy",
+			"-avoid_negative_ts", "make_zero",
 			utils.join_path(d.indir, output_name)
 		}
 
